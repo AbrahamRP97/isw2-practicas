@@ -1,27 +1,7 @@
-// =====================================================================
-//  INGENIERÍA DE SOFTWARE II · Módulo 6 · Arquitectura de software
-//  Sistema: CanchaYa HN — reservas de canchas sintéticas por hora
-//  Autor: Abraham Rivera
-//
-//  Ejecutar:  node --test-reporter=spec canchas.js
-//  → corre la demostración y luego las pruebas (todo en un archivo)
-//
-//  Tip VS Code: cada parte es un #region, se puede plegar/desplegar
-// =====================================================================
-
 const { test, describe } = require("node:test");
 const assert = require("node:assert/strict");
 
-// #region ❌ ANTES · todo mezclado en una sola función
-//
-// Problemas:
-//   • Reglas de negocio, base de datos, pagos y WhatsApp en el mismo lugar.
-//   • BD es una variable global (Singleton disfrazado): imposible de testear aislado.
-//   • El switch de pagos crece con cada método nuevo (viola Open/Closed).
-//   • Para probarla, SIEMPRE "manda" un WhatsApp.
-//   • Cambiar de base de datos = reescribir la regla de negocio.
-
-const BD = []; // ⚠️ estado global compartido por todo el sistema
+const BD = [];
 
 function reservar(c, f, h, n, tel, pago) {
   if (h < 6 || h + n > 22) return "error horario";
@@ -39,10 +19,6 @@ function reservar(c, f, h, n, tel, pago) {
   console.log(`   [WhatsApp] a ${tel}: reserva confirmada por L ${total}`);
   return total;
 }
-
-// #endregion
-
-// #region ✅ DESPUÉS · 1. DOMINIO (el centro: reglas puras, no importa nada)
 
 const HORA_APERTURA = 6;
 const HORA_CIERRE = 22;
@@ -78,13 +54,6 @@ function crearReserva(solicitud, reservasDelDia) {
   return { ...solicitud, precioBase: calcularPrecioBase(solicitud.horaInicio, solicitud.horas) };
 }
 
-// #endregion
-
-// #region ✅ DESPUÉS · 2. PATRÓN STRATEGY · métodos de pago sin switch
-//
-// Cada método es una estrategia con la misma forma: calcularTotal(base).
-// Agregar "billetera móvil" = una línea nueva. No se toca nada más (Open/Closed).
-
 const RECARGO_TARJETA = 0.035;
 const COMISION_TRANSFERENCIA = 10;
 const redondear = (monto) => Math.round(monto * 100) / 100;
@@ -95,16 +64,7 @@ const METODOS_DE_PAGO = {
   transferencia: { calcularTotal: (base) => base + COMISION_TRANSFERENCIA },
 };
 
-// #endregion
-
-// #region ✅ DESPUÉS · 3. APLICACIÓN · caso de uso + PUERTO
-//
-// PUERTO (lo define el centro, sin decir cómo se cumple):
-//   repositorio.reservasDe(cancha, fecha) → reservas de ese día
-//   repositorio.guardar(reserva)
-//
-// El caso de uso no sabe si detrás hay memoria, Supabase o MySQL.
-
+// Puerto que necesita el caso de uso: repositorio.reservasDe(cancha, fecha) y repositorio.guardar(reserva)
 function crearReservarCancha({ repositorio, metodosDePago, eventos }) {
   return async function reservarCancha(solicitud) {
     const reservasDelDia = await repositorio.reservasDe(solicitud.cancha, solicitud.fecha);
@@ -120,12 +80,6 @@ function crearReservarCancha({ repositorio, metodosDePago, eventos }) {
   };
 }
 
-// #endregion
-
-// #region ✅ DESPUÉS · 4. PATRÓN OBSERVER · quien quiera, se entera
-//
-// El caso de uso solo publica "reservaConfirmada". No sabe quién escucha.
-
 function crearEventos() {
   const suscriptores = {};
   return {
@@ -138,11 +92,6 @@ function crearEventos() {
   };
 }
 
-// #endregion
-
-// #region ✅ DESPUÉS · 5. ADAPTADORES (el borde) · REPOSITORY
-
-// Adaptador 1 · memoria (ideal para pruebas)
 function repoMemoria() {
   const reservas = [];
   return {
@@ -151,10 +100,8 @@ function repoMemoria() {
   };
 }
 
-// Adaptador 2 · "Supabase" simulado: la tabla usa snake_case.
-// El repositorio traduce al idioma del negocio. Cambiar de BD = cambiar SOLO este bloque.
 function repoSupabase() {
-  const tablaReservas = []; // simula la tabla remota
+  const tablaReservas = [];
   const aFila = (r) => ({ cancha_id: r.cancha, fecha: r.fecha, hora_inicio: r.horaInicio, horas: r.horas, telefono: r.telefono, total: r.total });
   const aReserva = (f) => ({ cancha: f.cancha_id, fecha: f.fecha, horaInicio: f.hora_inicio, horas: f.horas, telefono: f.telefono, total: f.total });
   return {
@@ -164,16 +111,9 @@ function repoSupabase() {
   };
 }
 
-// #endregion
-
-// #region ✅ DESPUÉS · 6. PATRÓN ADAPTER · una librería ajena con otro idioma
-//
-// La API externa de WhatsApp NO habla como mi sistema: pide un objeto raro
-// con código de país. Mi sistema solo sabe decir: enviar(telefono, texto).
-
 const ApiWhatsAppExterna = {
   sendTemplate(payload) {
-    console.log(`   📱 WhatsApp → ${payload.recipient.phone_number}: ${payload.template.body}`);
+    console.log(`   WhatsApp -> ${payload.recipient.phone_number}: ${payload.template.body}`);
   },
 };
 
@@ -184,30 +124,18 @@ function adaptadorWhatsApp(api) {
   };
 }
 
-// #endregion
-
-// #region ✅ DESPUÉS · 7. PATRÓN FACTORY · decide qué notificador construir
-
 function crearNotificador(canal) {
   if (canal === "whatsapp") return adaptadorWhatsApp(ApiWhatsAppExterna);
-  if (canal === "consola") return { enviar: (tel, texto) => console.log(`   💬 Consola → ${tel}: ${texto}`) };
-  if (canal === "silencioso") return { enviar: () => {} }; // para pruebas
+  if (canal === "consola") return { enviar: (tel, texto) => console.log(`   Consola -> ${tel}: ${texto}`) };
+  if (canal === "silencioso") return { enviar: () => {} };
   throw new Error(`Canal desconocido: ${canal}`);
 }
-
-// ⚠️ SINGLETON: lo vimos en el ANTES (const BD global). Aquí lo evitamos:
-//    cada pieza se crea y se INYECTA en armarSistema(). Nada es global.
-
-// #endregion
-
-// #region ✅ DESPUÉS · 8. COMPOSICIÓN · el único lugar donde se enchufa todo
 
 function armarSistema({ repositorio, canal }) {
   const eventos = crearEventos();
   const notificador = crearNotificador(canal);
   const reporteDelDia = { reservas: 0, ingresos: 0 };
 
-  // Observer: dos oyentes independientes del mismo evento
   eventos.suscribir("reservaConfirmada", (r) =>
     notificador.enviar(r.telefono, `Cancha ${r.cancha} reservada el ${r.fecha} a las ${r.horaInicio}:00. Total L ${r.total}`));
   eventos.suscribir("reservaConfirmada", (r) => {
@@ -219,11 +147,6 @@ function armarSistema({ repositorio, canal }) {
   return { reservarCancha, reporteDelDia };
 }
 
-// #endregion
-
-// =====================================================================
-//  DEMOSTRACIÓN
-// =====================================================================
 async function demo() {
   console.log("\n=== ANTES ===");
   console.log("Total:", reservar(1, "2026-11-28", 19, 2, "99887766", "tarjeta"));
@@ -237,22 +160,19 @@ async function demo() {
   try {
     await reservarCancha({ cancha: 1, fecha: "2026-11-28", horaInicio: 20, horas: 1, telefono: "22113344", metodoPago: "efectivo" });
   } catch (error) {
-    console.log("   ❌", error.message);
+    console.log("   Rechazada:", error.message);
   }
-  console.log("   📊 Reporte del día:", reporteDelDia);
+  console.log("   Reporte del día:", reporteDelDia);
   console.log("\n=== PRUEBAS ===");
 }
 
 demo();
 
-// =====================================================================
-//  PRUEBAS (patrón AAA: Arrange · Act · Assert)
-// =====================================================================
 const solicitud = (cambios = {}) => ({
   cancha: 1, fecha: "2026-11-28", horaInicio: 19, horas: 2, telefono: "99887766", metodoPago: "efectivo", ...cambios,
 });
 
-describe("Dominio · reglas puras, sin BD", () => {
+describe("Dominio", () => {
   test("cobra tarifa nocturna desde las 18:00", () => {
     assert.equal(calcularPrecioBase(17, 2), PRECIO_HORA_DIURNA + PRECIO_HORA_NOCTURNA);
   });
@@ -267,28 +187,27 @@ describe("Dominio · reglas puras, sin BD", () => {
   });
 });
 
-describe("Strategy · cada método de pago calcula su total", () => {
+describe("Strategy", () => {
   test("tarjeta suma 3.5% y transferencia suma L 10", () => {
     assert.equal(METODOS_DE_PAGO.tarjeta.calcularTotal(1000), 1035);
     assert.equal(METODOS_DE_PAGO.transferencia.calcularTotal(1000), 1010);
   });
 });
 
-describe("Repository · el MISMO caso de uso con dos adaptadores (swap)", () => {
+describe("Repository: mismo caso de uso, dos adaptadores", () => {
   for (const [nombre, crearRepo] of [["Memoria", repoMemoria], ["Supabase", repoSupabase]]) {
     test(`con repo${nombre}: guarda y luego detecta el cruce`, async () => {
-      // Arrange
       const { reservarCancha } = armarSistema({ repositorio: crearRepo(), canal: "silencioso" });
-      // Act
+
       const reserva = await reservarCancha(solicitud({ metodoPago: "tarjeta" }));
-      // Assert
+
       assert.equal(reserva.total, 1656);
       await assert.rejects(reservarCancha(solicitud({ horaInicio: 20, horas: 1 })), /ocupado/);
     });
   }
 });
 
-describe("Observer + Factory + Adapter", () => {
+describe("Observer, Factory y Adapter", () => {
   test("Observer: el reporte del día se entera de cada reserva", async () => {
     const { reservarCancha, reporteDelDia } = armarSistema({ repositorio: repoMemoria(), canal: "silencioso" });
     await reservarCancha(solicitud());
