@@ -12,13 +12,13 @@
 
 ```mermaid
 flowchart TB
-    cliente["👤 Cliente<br/><i>Reserva una cancha<br/>y paga su horario</i>"]
-    admin["👤 Administrador de la cancha<br/><i>Revisa reservas e ingresos del día</i>"]
+    cliente["Cliente<br/><i>Reserva una cancha<br/>y paga su horario</i>"]
+    admin["Administrador de la cancha<br/><i>Revisa reservas e ingresos del día</i>"]
 
-    canchaya["⚽ CanchaYa HN<br/><i>Reservas de canchas sintéticas por hora</i>"]
+    canchaya["CanchaYa HN<br/><i>Reservas de canchas sintéticas por hora</i>"]
 
-    whatsapp["💬 WhatsApp<br/><i>Sistema externo</i>"]
-    pagos["💳 Pasarela de pagos<br/><i>Sistema externo</i>"]
+    whatsapp["WhatsApp<br/><i>Sistema externo</i>"]
+    pagos["Pasarela de pagos<br/><i>Sistema externo</i>"]
 
     cliente -- "Reserva y paga" --> canchaya
     admin -- "Consulta reservas y reporte" --> canchaya
@@ -45,17 +45,17 @@ flowchart TB
 
 ```mermaid
 flowchart TB
-    cliente["👤 Cliente"]
-    admin["👤 Administrador"]
+    cliente["Cliente"]
+    admin["Administrador"]
 
-    subgraph canchaya ["⚽ CanchaYa HN"]
-        web["🖥️ Aplicación web<br/><b>React + Vite</b>"]
-        api["⚙️ API de reservas<br/><b>Node.js + Express</b><br/><i>Arquitectura hexagonal</i>"]
-        db[("🗄️ Base de datos<br/><b>PostgreSQL · Supabase</b>")]
+    subgraph canchaya ["CanchaYa HN"]
+        web["Aplicación web<br/><b>React + Vite</b>"]
+        api["API de reservas<br/><b>Node.js + Express</b><br/><i>Arquitectura hexagonal</i>"]
+        db[("Base de datos<br/><b>PostgreSQL · Supabase</b>")]
     end
 
-    whatsapp["💬 WhatsApp Business API<br/><i>Sistema externo</i>"]
-    pagos["💳 Pasarela de pagos<br/><i>Sistema externo</i>"]
+    whatsapp["WhatsApp Business API<br/><i>Sistema externo</i>"]
+    pagos["Pasarela de pagos<br/><i>Sistema externo</i>"]
 
     cliente -- "HTTPS" --> web
     admin -- "HTTPS" --> web
@@ -82,8 +82,9 @@ flowchart TB
 
 ## Correcciones a la IA
 
-Generé el borrador con IA y al revisarlo corregí lo siguiente:
+Partí de un borrador generado con IA. Al revisarlo contra el código, corregí lo siguiente:
 
-1. **Flecha API → Base de datos.** El borrador decía "Lee y guarda reservas (SQL)". Con Supabase, la API no manda SQL directo: usa la librería `supabase-js`, que se comunica por HTTPS. Lo cambié a "supabase-js / HTTPS".
-2. **Pasarela de pagos presentada como si ya existiera.** El nivel 2 dibuja la conexión con la pasarela, pero en `canchas.js` no hay ninguna integración de pagos, solo el cálculo del recargo. Agregué una nota de alcance debajo del diagrama para que el diagrama no prometa algo que el código no hace.
-3. **Afirmación sin fuente.** La justificación del nivel 1 decía que "en Honduras casi nadie revisa el correo". No tengo un dato que lo respalde, así que lo reescribí como un supuesto de diseño y no como un hecho.
+1. **Íconos en los diagramas.** El borrador ponía un emoji en cada caja. Los quité: el diagrama tiene que comunicar con texto claro, y los íconos no aportaban información.
+2. **Flecha API → Base de datos.** Decía "Lee y guarda reservas (SQL)". Con Supabase la API no manda SQL directo: usa la librería `supabase-js`, que se comunica por HTTPS. Lo cambié a "supabase-js / HTTPS".
+3. **Pasarela de pagos.** El nivel 2 dibuja la conexión con la pasarela, pero en `canchas.js` no hay integración de pagos, solo el cálculo del recargo. Agregué una nota de alcance para que el diagrama no prometa algo que el código no hace.
+4. **Afirmación sin respaldo.** Una justificación decía que "en Honduras casi nadie revisa el correo". No tengo un dato que lo respalde, así que lo reescribí como un supuesto de diseño.
